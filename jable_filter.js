@@ -1,7 +1,6 @@
 (function() {
     'use strict';
 
-    // 您的長名單，以後直接在 GitHub 改這裡就行
     const rawNames = [
         "小栗操","朝妃莉緒","清野咲","白峰美羽","香川杏","三雲彩葉","白石茉莉奈","皆瀨明里","竹内有紀","月野江翠","三葉千春","月乃露娜","釋愛麗絲","幸村泉希","天音流菜","日高由愛","田村香奈","松岡美櫻","白石麻友","春日日音","與田鈴","山石麻衣香","井上桃",
         "篠宮留衣","東條夏","根尾明里","久遠美緒","矢埜愛茉","櫻美櫻","倉本蓳","一宮留衣","柴崎春","明里紬","宮下玲奈","虹村由美","森彩美","黑咲華","天音蜜雪兒","鈴河惠","小倉美希音","夢實香苗","白石純","石川澪","逢澤美優","月神花梨","京本晴美","佐佐木明希",
@@ -53,15 +52,26 @@
         });
     }
 
-    // 將舊的監聽器和定時器清理掉（避免熱更新時重複綁定）
-    if (window.jableObserver) window.jableObserver.disconnect();
-    
-    const observerTarget = document.getElementById('site-content') || document.body;
-    window.jableObserver = new MutationObserver(() => {
-        filterCards();
-    });
+    // 核心修正：動態輪詢等待網頁元素完全出現，防止 Node 為 null 導致崩潰
+    function initObserver() {
+        const observerTarget = document.getElementById('site-content') || document.body;
+        
+        if (!observerTarget || (observerTarget === document.body && !document.getElementById('site-content'))) {
+            // 如果還沒載入到 site-content，過 50 毫秒再試一次
+            setTimeout(initObserver, 50);
+            return;
+        }
 
-    window.jableObserver.observe(observerTarget, { childList: true, subtree: true });
-    filterCards();
-    console.log('[遠端腳本] 篩選器已成功執行');
+        if (window.jableObserver) window.jableObserver.disconnect();
+        
+        window.jableObserver = new MutationObserver(() => {
+            filterCards();
+        });
+
+        window.jableObserver.observe(observerTarget, { childList: true, subtree: true });
+        filterCards();
+        console.log('[遠端腳本] 篩選器與監聽器已安全啟動成功');
+    }
+
+    initObserver();
 })();
