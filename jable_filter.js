@@ -12,6 +12,9 @@
 
     const filterNames = [...new Set(rawNames)];
 
+    // 印出目前過濾名單資訊與完整陣列內容
+    console.log(`[遠端腳本] 目前載入名單共 ${rawNames.length} 人（去重後 ${filterNames.length} 人）：`, rawNames);
+
     function shouldHide(title, name) {
         if (!title.includes(name)) return false;
 
