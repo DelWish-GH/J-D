@@ -7,27 +7,26 @@
         "花守夏步","尾崎惠梨香","小那海綾","望實佳苗","真宮詩織","七瀨愛麗絲","七森莉莉","千石萌奈果","足立友梨","安野由美","林芽依","安西澪","甘夏唯","白森胡桃","桐岡皐月","美之邊沙也加","朝宮來奈","古川穗花","石田紗季","天馬由衣","鳳美優","松本一香","辻美衣奈",
         "初美菜乃花","七瀨温","多田有花","夏目彩春","野野浦暖","中森七海","八掛海","吉永塔子","馬場紗奈","花狩舞","春陽萌花","二宮桃","小野六花","百瀨飛鳥","横宮七海","早見奈奈","紺野光","花宮麗","玉木久留美","市川愛茉","黑川紗里奈","山井鈴","大浦真奈美",
         "成澤妃","葉月萌","愛乃零","南乃空","明海香","廣仲南","未步奈奈","八木奈奈","渚愛梨","榊原萌","結城希","水戶香奈","篠崎沙帆","結城花乃羽","仲村美羽","古東真理子","天使萌","明日葉三葉","白上咲花","日向夏","瀧本雫葉","美咲園香","美咲佳奈","花咲澪","藤咲舞",
-        "瀨緒凜","北川遥","響蓮","唯井真尋","青空光","宮島芽衣","新川空","天川空","綾瀨天","淺野心","河北彩花","河北彩伽","倉木華","園梨音","本庄鈴","佐久間津奈","音無鈴","大島優香","葵百合香","木戶薫","渚戀生","兒玉七海","白石透羽","佐佐倉日和","幸村泉希",
+        "瀨緒凜","北川遥","響蓮","唯井真尋","青空光","宮島芽衣","新川空","天川空","綾瀨天","淺野心","河北彩花","河北彩伽","倉木華","園梨音","本庄鈴","佐久間津奈","音無鈴","大島優香","葵百合香","木戶薫","渚戀生","兒玉七海","白石透羽","佐佐倉日和",
         "谷村凪咲","葉月保奈美","愛才莉亞","瀨緒凛","白石奈美","輝星綺羅","石川胡桃","北岡果林","佐藤愛瑠","雪奈真冬","前田美波","柏木雫","巴煇","凰華鈴","小早川怜子","生田紗奈","新木希空","三田真鈴","小松本果","新垣美琉","川口櫻","Maria Valentine"
     ];
 
-    // 自動偵測重複名單
+    // 檢查重複人名
     const duplicates = rawNames.filter((name, index) => rawNames.indexOf(name) !== index);
     const uniqueDuplicates = [...new Set(duplicates)];
-
     const filterNames = [...new Set(rawNames)];
 
-    // Log 輸出偵測結果
     console.log(`[遠端腳本] 目前載入名單共 ${rawNames.length} 人（去重後 ${filterNames.length} 人）：`, rawNames);
     if (uniqueDuplicates.length > 0) {
         console.warn(`[遠端腳本] ⚠️ 發現重複人名 (${uniqueDuplicates.length} 個)：`, uniqueDuplicates);
     } else {
-        console.log(`[遠端腳本]  名單檢查正常，無重複人名。`);
+        console.log(`[遠端腳本] 名單檢查正常，無重複人名。`);
     }
 
     function shouldHide(title, name) {
         if (!title.includes(name)) return false;
 
+        // 1. 如果標題同時包含了名單內的其他名字 -> 合作作品，不隱藏
         const otherNamesFound = filterNames.filter(n => n !== name && title.includes(n));
         if (otherNamesFound.length > 0) return false;
 
@@ -35,19 +34,26 @@
         const nameIndex = parts.indexOf(name);
 
         if (nameIndex !== -1) {
-            const blacklistKeywords = ['中出', '無套', '巨乳', '解禁', '新人', '作品', '限定', '特別', '完全'];
+            // 規則 A：名字後面還有其他空格分詞 -> 代表後面還有人名，不隱藏
+            if (nameIndex < parts.length - 1) {
+                return false;
+            }
+
+            // 規則 B：名字是最後一個詞 (nameIndex === parts.length - 1)
+            // 檢查它前面是否是另一個人名（合作片末端會有多個人名空格隔開）
             if (nameIndex > 0) {
                 const prevPart = parts[nameIndex - 1];
-                if (prevPart.length >= 2 && prevPart.length <= 5 &&
-                    !blacklistKeywords.some(k => prevPart.includes(k)) &&
-                    !/[A-Z0-9:-]+/i.test(prevPart)) {
-                    return false; 
+                // 如果前一個詞是番號或標籤前綴（例如 ADN-778、MIDA-497、IPZZ-868 或 【...】）
+                // 則代表前面不是人名，而是片名本體 -> 判定為單人作品
+                const isCodeOrTag = /^[A-Za-z0-9_#-]+$/.test(prevPart) || /^【.*】$/.test(prevPart);
+
+                // 如果前一個詞不是番號且整串標題末尾有連續空格人名結構，代表前面是其他人名
+                if (!isCodeOrTag && parts.length > 3) {
+                    return false;
                 }
             }
-            if (nameIndex < parts.length - 1) {
-                return false; 
-            }
         }
+
         return true;
     }
 
@@ -66,12 +72,10 @@
         });
     }
 
-    // 核心修正：動態輪詢等待網頁元素完全出現，防止 Node 為 null 導致崩潰
     function initObserver() {
         const observerTarget = document.getElementById('site-content') || document.body;
         
         if (!observerTarget || (observerTarget === document.body && !document.getElementById('site-content'))) {
-            // 如果還沒載入到 site-content，過 50 毫秒再試一次
             setTimeout(initObserver, 50);
             return;
         }
