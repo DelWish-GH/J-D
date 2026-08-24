@@ -11,50 +11,48 @@
         "谷村凪咲","葉月保奈美","愛才莉亞","瀨緒凛","白石奈美","輝星綺羅","石川胡桃","北岡果林","佐藤愛瑠","雪奈真冬","前田美波","柏木雫","巴煇","凰華鈴","小早川怜子","生田紗奈","新木希空","三田真鈴","小松本果","新垣美琉","川口櫻","Maria Valentine"
     ];
 
-    // 檢查重複人名
-    const duplicates = rawNames.filter((name, index) => rawNames.indexOf(name) !== index);
-    const uniqueDuplicates = [...new Set(duplicates)];
-    const filterNames = [...new Set(rawNames)];
+    // ── 檢查並打印重複人名 ──────────────────────────────────────
+    const nameCount = {};
+    rawNames.forEach(name => {
+        nameCount[name] = (nameCount[name] || 0) + 1;
+    });
 
-    console.log(`[遠端腳本] 目前載入名單共 ${rawNames.length} 人（去重後 ${filterNames.length} 人）：`, rawNames);
-    if (uniqueDuplicates.length > 0) {
-        console.warn(`[遠端腳本] ⚠️ 發現重複人名 (${uniqueDuplicates.length} 個)：`, uniqueDuplicates);
+    const duplicateList = Object.entries(nameCount)
+        .filter(([_, count]) => count > 1)
+        .map(([name, count]) => `• ${name} (出現 ${count} 次)`);
+
+    if (duplicateList.length > 0) {
+        console.warn(`[過濾腳本] ⚠️ 發現重複人名 (${duplicateList.length} 組)，請手動刪除：\n` + duplicateList.join('\n'));
     } else {
-        console.log(`[遠端腳本] 名單檢查正常，無重複人名。`);
+        console.log(`[過濾腳本]  名單檢查正常，無任何重複人名（共 ${rawNames.length} 人）。`);
     }
 
-    function shouldHide(title, name) {
-        if (!title.includes(name)) return false;
+    // 建立 Set 提升比對效能（自動去重）
+    const filterNamesSet = new Set(rawNames);
 
-        // 1. 如果標題同時包含了名單內的其他名字 -> 合作作品，不隱藏
-        const otherNamesFound = filterNames.filter(n => n !== name && title.includes(n));
-        if (otherNamesFound.length > 0) return false;
-
+    function shouldHide(title) {
+        // 依照空格分段：第 0 段為片名，後續段落皆為人名
         const parts = title.trim().split(/\s+/);
-        const nameIndex = parts.indexOf(name);
+        
+        // 沒有任何空格（無人名標註）-> 不隱藏
+        if (parts.length < 2) return false;
 
-        if (nameIndex !== -1) {
-            // 規則 A：名字後面還有其他空格分詞 -> 代表後面還有人名，不隱藏
-            if (nameIndex < parts.length - 1) {
-                return false;
-            }
+        const names = parts.slice(1);
 
-            // 規則 B：名字是最後一個詞 (nameIndex === parts.length - 1)
-            // 檢查它前面是否是另一個人名（合作片末端會有多個人名空格隔開）
-            if (nameIndex > 0) {
-                const prevPart = parts[nameIndex - 1];
-                // 如果前一個詞是番號或標籤前綴（例如 ADN-778、MIDA-497、IPZZ-868 或 【...】）
-                // 則代表前面不是人名，而是片名本體 -> 判定為單人作品
-                const isCodeOrTag = /^[A-Za-z0-9_#-]+$/.test(prevPart) || /^【.*】$/.test(prevPart);
-
-                // 如果前一個詞不是番號且整串標題末尾有連續空格人名結構，代表前面是其他人名
-                if (!isCodeOrTag && parts.length > 3) {
-                    return false;
-                }
-            }
+        // 特殊處理自帶空格的英文藝名 (例如 "Maria Valentine")
+        const fullRemainingName = names.join(' ');
+        if (filterNamesSet.has(fullRemainingName)) {
+            return true; // 單人作品且命中黑名單 -> 隱藏
         }
 
-        return true;
+        // 超過 1 個空格分段 -> 代表有多位人名 (多人合作) -> 保留不隱藏
+        if (names.length > 1) {
+            return false;
+        }
+
+        // 單一人名 -> 比對是否在名單內
+        const singleName = names[0];
+        return filterNamesSet.has(singleName);
     }
 
     function filterCards() {
@@ -63,11 +61,9 @@
             const titleElement = card.querySelector('.title a');
             if (titleElement) {
                 const titleText = titleElement.innerText;
-                filterNames.forEach(name => {
-                    if (shouldHide(titleText, name)) {
-                        card.style.display = 'none';
-                    }
-                });
+                if (shouldHide(titleText)) {
+                    card.style.display = 'none';
+                }
             }
         });
     }
@@ -88,7 +84,7 @@
 
         window.jableObserver.observe(observerTarget, { childList: true, subtree: true });
         filterCards();
-        console.log('[遠端腳本] 篩選器與監聽器已安全啟動成功');
+        console.log('[過濾腳本] 篩選器與監聽器已安全啟動成功');
     }
 
     initObserver();
