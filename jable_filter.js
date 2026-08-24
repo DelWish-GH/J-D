@@ -11,10 +11,19 @@
         "谷村凪咲","葉月保奈美","愛才莉亞","瀨緒凛","白石奈美","輝星綺羅","石川胡桃","北岡果林","佐藤愛瑠","雪奈真冬","前田美波","柏木雫","巴煇","凰華鈴","小早川怜子","生田紗奈","新木希空","三田真鈴","小松本果","新垣美琉","川口櫻","Maria Valentine"
     ];
 
+    // 自動偵測重複名單
+    const duplicates = rawNames.filter((name, index) => rawNames.indexOf(name) !== index);
+    const uniqueDuplicates = [...new Set(duplicates)];
+
     const filterNames = [...new Set(rawNames)];
 
-    // 印出目前過濾名單資訊與完整陣列內容
+    // Log 輸出偵測結果
     console.log(`[遠端腳本] 目前載入名單共 ${rawNames.length} 人（去重後 ${filterNames.length} 人）：`, rawNames);
+    if (uniqueDuplicates.length > 0) {
+        console.warn(`[遠端腳本] ⚠️ 發現重複人名 (${uniqueDuplicates.length} 個)：`, uniqueDuplicates);
+    } else {
+        console.log(`[遠端腳本]  名單檢查正常，無重複人名。`);
+    }
 
     function shouldHide(title, name) {
         if (!title.includes(name)) return false;
